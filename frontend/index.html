@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reesha Supply Chain DApp</title>
+</head>
+<body>
+  <h1>Reesha Supply Chain DApp</h1>
+  <p><b>Contract:</b> 0x7F02c311F8360C2A7A6E55135ab9C0Fa51cb0566</p>
+
+  <button onclick="connectWallet()">Connect Wallet</button>
+  <p id="walletStatus">Not connected</p>
+
+  <hr>
+
+  <h2>1. Assign Role</h2>
+  <input id="roleAddress" type="text" placeholder="Wallet Address" size="50" />
+  <input id="roleValue" type="number" placeholder="Role Number" />
+  <button onclick="assignRole()">Assign Role</button>
+  <p>Role mapping: 0 = Manufacturer, 1 = Distributor, 2 = Retailer, 3 = Customer</p>
+
+  <hr>
+
+  <h2>2. Register Product</h2>
+  <input id="name" type="text" placeholder="Product Name" />
+  <input id="desc" type="text" placeholder="Description" />
+  <button onclick="registerProduct()">Register Product</button>
+
+  <hr>
+
+  <h2>3. Transfer Product</h2>
+  <input id="transferProductId" type="number" placeholder="Product ID" />
+  <input id="newOwner" type="text" placeholder="New Owner Address" size="50" />
+  <button onclick="transferProduct()">Transfer Product</button>
+
+  <hr>
+
+  <h2>4. Get Product</h2>
+  <input id="productId" type="number" placeholder="Product ID" />
+  <button onclick="getProduct()">Get Product</button>
+
+  <hr>
+
+  <h2>5. Get Product History</h2>
+  <input id="historyId" type="number" placeholder="Product ID" />
+  <button onclick="getHistory()">Get History</button>
+
+  <hr>
+
+  <p id="output"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+
+  <script>
+    let provider;
+    let signer;
+    let contract;
+
+    const contractAddress = "0x7F02c311F8360C2A7A6E55135ab9C0Fa51cb0566";
+
+    const abi = [
+      "function assignRole(address user, uint8 role)",
+      "function registerProduct(string name, string description)",
+      "function transferProduct(uint256 productId, address newOwner)",
+      "function getProduct(uint256 productId) view returns (tuple(uint256 id, string name, string description, address currentOwner, uint8 status))",
+      "function getProductHistory(uint256 productId) view returns (address[])",
+      "function owner() view returns (address)",
+      "function roles(address) view returns (uint8)"
+    ];
+
+    const txOverrides = {
+      maxPriorityFeePerGas: ethers.parseUnits("30", "gwei"),
+      maxFeePerGas: ethers.parseUnits("60", "gwei")
+    };
+
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert("MetaMask not installed");
+        return;
+      }
+
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+
+        const chainId = await window.ethereum.request({ method: "eth_chainId" });
+        if (chainId !== "0x13882") {
+          alert("Please switch MetaMask to Polygon Amoy");
+          return;
+        }
+
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        contract = new ethers.Contract(contractAddress, abi, signer);
+
+        const address = await signer.getAddress();
+        document.getElementById("walletStatus").innerText = "Connected: " + address;
+        document.getElementById("output").innerText = "Wallet connected successfully.";
+      } catch (error) {
+        console.error(error);
+        document.getElementById("output").innerText = "Wallet connection failed.";
+      }
+    }
+
+    async function assignRole() {
+      try {
+        if (!contract) {
+          alert("Connect wallet first");
+          return;
+        }
+
+        const addr = document.getElementById("roleAddress").value.trim();
+        const role = document.getElementById("roleValue").value.trim();
+
+        if (!addr || role === "") {
+          alert("Enter address and role");
+          return;
+        }
+
+        document.getElementById("output").innerText = "Assigning role...";
+        const tx = await contract.assignRole(addr, role, txOverrides);
+        await tx.wait();
+
+        document.getElementById("output").innerText = "Role assigned successfully.";
+      } catch (error) {
+        console.error(error);
+        document.getElementById("output").innerText = "Role assignment failed: " + (error.shortMessage || error.message);
+      }
+    }
+
+    async function registerProduct() {
+      try {
+        if (!contract) {
+          alert("Connect wallet first");
+          return;
+        }
+
+        const name = document.getElementById("name").value.trim();
+        const desc = document.getElementById("desc").value.trim();
+
+        if (!name || !desc) {
+          alert("Enter product name and description");
+          return;
+        }
+
+        document.getElementById("output").innerText = "Registering product...";
+        const tx = await contract.registerProduct(name, desc, txOverrides);
+        await tx.wait();
+
+        document.getElementById("output").innerText = "Product registered successfully.";
+      } catch (error) {
+        console.error(error);
+        document.getElementById("output").innerText = "Product registration failed: " + (error.shortMessage || error.message);
+      }
+    }
+
+    async function transferProduct() {
+      try {
+        if (!contract) {
+          alert("Connect wallet first");
+          return;
+        }
+
+        const id = document.getElementById("transferProductId").value.trim();
+        const newOwner = document.getElementById("newOwner").value.trim();
+
+        if (!id || !newOwner) {
+          alert("Enter product ID and new owner address");
+          return;
+        }
+
+        document.getElementById("output").innerText = "Transferring product...";
+        const tx = await contract.transferProduct(id, newOwner, txOverrides);
+        await tx.wait();
+
+        document.getElementById("output").innerText = "Product transferred successfully.";
+      } catch (error) {
+        console.error(error);
+        document.getElementById("output").innerText = "Product transfer failed: " + (error.shortMessage || error.message);
+      }
+    }
+
+    async function getProduct() {
+      try {
+        if (!contract) {
+          alert("Connect wallet first");
+          return;
+        }
+
+        const id = document.getElementById("productId").value.trim();
+        if (!id) {
+          alert("Enter product ID");
+          return;
+        }
+
+        const product = await contract.getProduct(id);
+
+        document.getElementById("output").innerText =
+          `ID: ${product[0]}, Name: ${product[1]}, Description: ${product[2]}, Owner: ${product[3]}, Status: ${product[4]}`;
+      } catch (error) {
+        console.error(error);
+        document.getElementById("output").innerText = "Could not fetch product.";
+      }
+    }
+
+    async function getHistory() {
+      try {
+        if (!contract) {
+          alert("Connect wallet first");
+          return;
+        }
+
+        const id = document.getElementById("historyId").value.trim();
+        if (!id) {
+          alert("Enter product ID");
+          return;
+        }
+
+        const history = await contract.getProductHistory(id);
+
+        document.getElementById("output").innerText = "History: " + history.join(" -> ");
+      } catch (error) {
+        console.error(error);
+        document.getElementById("output").innerText = "Could not fetch history.";
+      }
+    }
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", () => {
+        location.reload();
+      });
+
+      window.ethereum.on("chainChanged", () => {
+        location.reload();
+      });
+    }
+  </script>
+</body>
+</html>
